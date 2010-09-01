@@ -1,0 +1,479 @@
+;; -*- mode: Markdown; -*-
+
+# How to read:
+commands are indented
+actions to perform while presenting are marked with @
+left to right
+
+# Welcome
+see progit.org 
+what is version control
+
+why use it:
+
+  * backup/restore
+  * synchronization sharing 
+  * track changes
+  * ownership
+  * branching and merging
+
+who has used subversion 
+
+git
+  * you've heard its distributed 
+  * b/c branching and merging
+
+pace - slow, no slides
+
+leave with practical understanding
+
+# Install &amp; Config
+
+    sudo port install git-core +svn
+    git config --global user.name "Nate Murray"
+    git config --global user.email "nate@natemurray.com"
+
+# Basic Commands
+
+    cd ~
+    mkdir -p projects/demo       # explain only a little
+    cd projects/demo
+    git init
+    git status                   # nothing here 
+    ls -a                        # talk .git repository vs. working copy
+    echo "version 1" > README.txt  
+    git status                   # untracked file
+    git add README.txt
+    git status                   # changes to be committed
+    git commit -m "added version one of the file" 
+    git status                   # clean
+
+stop, draw the picture of the local operation phases - e.g. svn vs. git
+
+> Principle 1: (almost) everything is local
+
+so now that you know about the staging area, lets do it again
+
+    echo "new file" > sheep.rb
+    git status                   # draw untracked
+    git add sheep.rb
+    git status                   # draw staged
+    git commit -m "added"
+
+    cat README.txt                 # draw unmodified
+    echo "version 2" > README.txt  
+    git status                   # draw modified
+    git commit -a -m "updated version" # shorthand for git add
+    git status
+
+Tips:
+ 
+    git config --global alias.st status
+    git st
+
+# Git Internals
+
+* Before we can talk about branching you *have* to understand how git (tried to avoid this)
+* files and folders
+
+three objects -  @ Draw first commit
+
+  * blob        - raw data
+  * tree        - folder (stores blobs and trees)
+  * commit      - snapshot of the repo + meta 
+
+You won't need to use `git cat-file` on a daily basis. however, understanding
+the concepts we're going to talk about is really important for branching.
+
+    git log # view the log
+    git show ----  # first commit, whatever it is
+
+    git cat-file -p  ---- # first commit
+    git cat-file -p  ---- # tree
+    git cat-file -p  ---- # blob
+
+draw the rest using git `cat-file`
+
+    git log           # show the log again
+    git cat-file -p ---- # second commit
+
+draw the picture. point out the parent connection. 
+note committer / author
+
+    git cat-file -p ---- # tree
+
+note here there are two blobs!
+
+finish drawing out the second commit
+* git stores reference to first file. 
+* snapshot of the *whole project* 
+* git stores each file once
+* filename is in the `tree` 
+
+draw the last commit
+
+     git log
+     git cat-file -p ---- # third commit
+
+> Principle #2 : Git commits are snapshots
+
+* A commit in git is a snapshot of the entire project, not just a list of diffs. 
+* snapshot is based on the SHA hash function. guarantees file integrity
+
+# refs/branches
+
+questions?
+
+@ stop. redraw commits as *linear* . looking only at commits
+
+ready to define a branch
+a branch is a pointer to a commi
+text file with a sha. thats it. 
+
+start with one branch called `master`
+
+    git branch
+
+bash prompt
+
+    # skip this
+    tree .git/refs/
+    cat .git/refs/heads/master 
+    git log
+    # compare the SHAs
+
+update diagram by adding a `ref` to our commit. (`master`). 
+
+@ draw circle pointing to commit
+
+create testing branch
+
+# branching
+
+So lets create another branch:
+
+    git branch testing
+    git branch
+
+only created, didn't switch. just created a ref pointing to this
+commit
+
+@ update diagram
+
+How does git know what branch we are "on"?
+
+special ref called `HEAD` that points to the local branch
+since we are still on master HEAD points to master
+
+@ add HEAD
+
+To switch working copy, use the `git checkout`
+
+    git checkout testing
+    git branch
+
+HEAD moves from `master` to `testing`
+
+@ update diagram
+
+master and testing point to the same commit, working directory isn't changed
+
+checkout means something different in git than it does in svn.
+checkout in git to switch our working directory to a particular commit. 
+
+now make changes:
+
+    cat README.txt 
+    echo "we are on the testing branch!" > README.txt
+    cat README.txt
+    git commit -a -m "updated the readme"
+    git log
+
+@ update diagram, adding new commit. move the testing ref and the HEAD ref with it
+
+add a "test"
+
+    echo "this is a test" > test.rb
+    git add test.rb                    # stage it for our commit
+    git commit -m "added a test"       # now commit
+    git log
+
+@ update diagram - should have two commits
+
+hotfix - scenario: you need to switch back to master
+
+    git checkout master
+    ls
+
+@ move HEAD
+
+so notice two things. 
+1) switching to this branch was fast - everything is local
+2) our file test.rb is absent
+
+and if we
+    
+    cat README.txt
+
+it says 'version 2' just like we would expect
+
+    echo "applying fix" >> sheep.rb 
+    cat sheep.rb
+    git commit -a -m "applied important fix"
+    git log
+    git cat-file -p ---- # last commit
+
+@ draw the new commit, and draw its reference back to the parent. move HEAD and master
+
+now fixed, can push into production
+and get back to work in `testing`
+
+    git checkout testing
+    cat README.txt
+    cat test.rb
+
+This is a general pattern:
+
+> Principle #3: Branching is cheap, use it often
+
+If you are working on a particular feature, create a branch. 
+
+If you're coming from svn, making frequent branches might seem unnatural. 
+in svn, a branch is global -> namespace issues.
+vs. git: private branches 
+name your branch 'test' and it won't collide with anyone elses
+
+But branching itself isn't that useful unless its easy to merge.
+
+* how many of you have merged a branch in svn? 
+* how many of you enjoyed it?
+
+merging is one of git's strength and git makes it relatively easy
+
+# merging
+
+    cat sheep.rb
+
+two branches: `master` and `testing` - need to merge
+
+    git checkout master
+    git merge testing
+    git show HEAD
+
+instead of a 'parent' we have a line that says 'merge'
+a merge commit has more than one parent
+
+@ draw the commit object
+@ draw lines to the commits
+
+    gitx
+
+sometimes merging doesn't go as planned - conflicts
+
+    git checkout -b breaker
+
+this is shorthand for create and then checkout a new branch based on the
+current HEAD
+
+    vi sheep.rb # changing fix
+    git commit -a -m "changed the fix"
+    git checkout master
+    vi sheep.rb # improving fix
+    git commit -a -m "improved the fix"
+
+@(update diagram, adding breaker and master refs)
+
+    git merge breaker
+    git status
+
+there are many diff viewing tools. 
+* perforce
+* opendiff - from apple
+
+    git mergetool -t opendiff
+
+I don't really like using the visual tools. 
+Sometimes you need character level editing
+
+    vi sheep.rb
+    git add sheep.rb
+    git commit -a
+
+talk about merge with conflicts
+
+@ update diagram draw new merge commit
+
+    gitx
+
+Questions?
+
+# Remotes
+
+Everything so far on one machine. 
+
+I work offline (I take the train)
+If I break something I can rollback see where I was an hour ago 
+
+want to share our changes. 
+might seem scary or messy because changes to totally independent lines of the code. 
+but in practice its not a problem.
+
+svn version numbers are incremental - so two repos would get out of
+step
+no easy way of merging two separate repostories. 
+
+git blob identifiers are a SHA of the content. 
+if the same content is created anywhere in the universe you'll still
+have the same SHA
+
+git doesn't care about where your commits come from or how you get them
+
+Protocols: 
+  * ssh 
+  * git 
+  * http 
+  * local file system
+
+sample project on our github
+
+    cd ..
+    open http://XXX/nmurray/simple-echo
+    git clone git@XXX:nmurray/simple-echo.git
+    cd simple-echo
+    git log
+
+svn checkout just HEAD
+vs. git - whole repo
+
+To be able to collaborate with others you have to manage 'remote repositories'.
+When you clone a project, you have a default remote called 'origin'. 
+
+    git remote -v
+
+Remotes are pointers to other repositories that are _usually_ over the network.
+'pull' and 'push' changes.
+
+    vi README.mkd
+    # make a change
+    git commit -a -m "make a change"
+    git push
+
+If someone else makes a change:
+
+    git pull origin master
+
+This means pull from `origin` the branch `master` into local branch `master`. You can often to just
+
+    git pull
+    
+which means pull from origin whatever branch Im on (i.e. HEAD) into this branch.
+
+Now let's say someone pushes a change and I make a change
+I can't push unless I pull first. This is good.
+
+# remote forks
+
+So that is while we are on the same line. What if were on different lines?
+
+@(open up webbrowser again)
+
+Bh also has forked my project. But when we say forked, all the means is he has
+created his own development line from some of my commits
+
+
+    git remote add bh git@XXX:bhenderson/simple-echo.git
+    git remote -v
+
+Now you shouldn't be surprised to learn that adding the remote doesn't change
+anything. First we have to `fetch` hist changes
+
+    git fetch bh
+
+`fetch` brings his commits into my repo but again, doesnt change my working copy.
+
+fetch brought branches + commits into repo
+work with those branches just like any other branch.
+
+    git branch -a
+
+So you see here we have 
+
+* `master`, which is our local master
+* we have at the bottom `origin/master` which is the origin where we pulled from branch master
+* and then we have `bh/master`, which is bhendersons master branch
+
+These are all regular branches: they are just pointers to commits. We
+can even checkout as branch 
+
+    git checkout bh/master
+
+scary message
+
+    git checkout master
+
+So how would we merge bhendersons changes with our own? I'm sure you could guess by now. Simply:
+
+    git merge bh/master # don't press enter!!!
+
+But lets take it up a notch. 
+say you didn't want to merge bh changes in your master branch.
+real world, you might not know if his changes would merge cleanly
+don't want to mess up your master branch.  
+
+What we are going to do is 
+* create a new branch, 
+* merge bhs branch in THAT branch
+* then we're going to merge to master.
+
+It will make more sense when we do it. Lets try:
+
+Okay we first want to create a new branch based on our master
+
+    git checkout -b bh-merge 
+    git branch -a 
+
+Now lets merge his changes
+
+    cat simple-echo.rb
+    git merge bh/master
+    cat simple-echo.rb
+    git log                  # see bh as the author of the commit
+
+okay everything was clean! *phew* now lets go back to master
+
+    git checkout master
+    git merge bh-merge
+    git log
+
+and there we go! merged nicely.
+now I don't need bhendersons merge branch anymore, so lets delete it
+
+    git branch -d bh-merge
+    git branch -a
+
+git is distributed
+
+Instead of one central server, that everyone has to sync to,
+* independent lines of work can go on.  
+* If someone creates something good in their branch, they just tell people about it. 
+* permission-less 
+
+you can see why it is so good for open-source development
+
+questions about branching?
+
+# Advanced
+
+* tagging 
+* rebase 
+* cherry pick 
+* git bisect
+* hooks 
+* tracking branches 
+* submodules
+* interactive staging
+* squashing commits
+* git-svn
+* setting up your own server
+* patches via email
+* gitjour
